@@ -28,16 +28,14 @@ with tab_sync:
     if st.button("Notionデータを同期", use_container_width=True, disabled=not can_sync):
         with st.spinner("同期中..."):
             try:
+                raw = settings['notion_page_ids'].replace(",", "\n")
                 page_ids = []
-                for line in settings['notion_page_ids'].strip().split("\n"):
+                for line in raw.strip().split("\n"):
                     line = line.strip()
                     if line:
                         page_id = extract_page_id_from_url(line)
                         if page_id:
                             page_ids.append(page_id)
-
-                if not page_ids:
-                    page_ids = [p.strip() for p in settings['notion_page_ids'].split(",") if p.strip()]
 
                 loader = NotionLoader(settings['notion_token'], page_ids)
                 pages = loader.load_all_pages()

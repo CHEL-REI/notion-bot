@@ -89,6 +89,25 @@ class Chunk:
 
 # ==================== 設定管理 ====================
 
+_PAGE_IDS_FILE = Path("/tmp/notion_bot_page_ids.json")
+
+
+def save_page_ids(page_ids: str) -> None:
+    """NotionページIDをファイルに永続保存する。"""
+    _PAGE_IDS_FILE.write_text(json.dumps({"notion_page_ids": page_ids}), encoding="utf-8")
+
+
+def load_page_ids() -> str | None:
+    """ファイルから保存済みページIDを読み込む。なければNone。"""
+    if _PAGE_IDS_FILE.exists():
+        try:
+            data = json.loads(_PAGE_IDS_FILE.read_text(encoding="utf-8"))
+            return data.get("notion_page_ids")
+        except (json.JSONDecodeError, OSError):
+            return None
+    return None
+
+
 def get_settings():
     """Streamlit secretsまたはsession_stateから設定を取得"""
     settings = {}
@@ -100,12 +119,15 @@ def get_settings():
     except Exception:
         pass
 
+    # ページIDはファイル永続化を優先
+    saved_page_ids = load_page_ids()
+    if saved_page_ids:
+        settings['notion_page_ids'] = saved_page_ids
+
     if 'notion_token' in st.session_state and st.session_state.notion_token:
         settings['notion_token'] = st.session_state.notion_token
     if 'openai_api_key' in st.session_state and st.session_state.openai_api_key:
         settings['openai_api_key'] = st.session_state.openai_api_key
-    if 'notion_page_ids' in st.session_state:
-        settings['notion_page_ids'] = st.session_state.notion_page_ids
 
     return settings
 

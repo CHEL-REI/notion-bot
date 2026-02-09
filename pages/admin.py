@@ -5,6 +5,7 @@ from lib.auth import check_auth
 from lib.core import (
     get_settings, extract_page_id_from_url,
     NotionLoader, ImageProcessor, Chunker, VectorStore,
+    save_page_ids, load_page_ids,
 )
 from lib.chat_logger import read_logs, get_log_stats
 
@@ -103,14 +104,21 @@ with tab_settings:
     if openai_api_key:
         st.session_state.openai_api_key = openai_api_key
 
+    st.divider()
+    st.subheader("Notionページ設定")
+    st.caption("ここでの変更はアプリ再起動後も保持されます。")
+
+    current_page_ids = load_page_ids() or get_settings().get('notion_page_ids', '')
     notion_pages_input = st.text_area(
         "読み込むNotionページ（1行に1つ）",
-        value=st.session_state.get('notion_page_ids', ''),
+        value=current_page_ids,
         placeholder="https://www.notion.so/PageName-xxxxx",
         height=100,
+        key="notion_page_ids_input",
     )
-    if notion_pages_input:
-        st.session_state.notion_page_ids = notion_pages_input
+    if st.button("ページ設定を保存", use_container_width=True):
+        save_page_ids(notion_pages_input)
+        st.success("ページ設定を保存しました。")
 
     if has_secrets:
         st.success("secrets.toml からAPI設定が読み込まれています。")

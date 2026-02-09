@@ -15,7 +15,7 @@ st.title("管理者ページ")
 if not check_auth("admin"):
     st.stop()
 
-tab_sync, tab_settings, tab_logs = st.tabs(["データ同期", "API設定", "チャットログ"])
+tab_sync, tab_settings, tab_logs = st.tabs(["データ同期", "Notion設定", "チャットログ"])
 
 # ==================== データ同期タブ ====================
 with tab_sync:
@@ -45,14 +45,6 @@ with tab_sync:
 
 # ==================== API設定タブ ====================
 with tab_settings:
-    st.subheader("API設定（一時変更）")
-    st.caption("ここでの変更はセッション中のみ有効です。永続化するには secrets.toml を編集してください。")
-
-    try:
-        has_secrets = st.secrets.get('NOTION_TOKEN') and st.secrets.get('OPENAI_API_KEY')
-    except Exception:
-        has_secrets = False
-
     st.subheader("Notion設定")
     st.caption("ここでの変更はアプリ再起動後も保持されます。")
 
@@ -67,22 +59,7 @@ with tab_settings:
     )
 
     st.divider()
-    st.subheader("OpenAI設定")
-    st.caption("ここでの変更はセッション中のみ有効です。永続化するには secrets.toml を編集してください。")
-
-    openai_api_key = st.text_input(
-        "OpenAI API Key",
-        type="password",
-        value=st.session_state.get('openai_api_key', ''),
-        placeholder="sk-xxx",
-        help="https://platform.openai.com/api-keys で取得",
-    )
-    if openai_api_key:
-        st.session_state.openai_api_key = openai_api_key
-
-    st.divider()
     st.subheader("Notionページ設定")
-    st.caption("ここでの変更はアプリ再起動後も保持されます。")
 
     current_page_ids = load_page_ids() or get_settings().get('notion_page_ids', '')
     notion_pages_input = st.text_area(
@@ -97,8 +74,6 @@ with tab_settings:
         save_page_ids(notion_pages_input)
         st.success("Notion Token・ページ設定を保存しました。")
 
-    if has_secrets:
-        st.success("secrets.toml からAPI設定が読み込まれています。")
 
 # ==================== チャットログタブ ====================
 with tab_logs:

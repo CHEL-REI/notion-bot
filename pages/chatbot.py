@@ -3,10 +3,11 @@
 import streamlit as st
 from lib.auth import check_auth
 from lib.core import (
-    get_settings, RAGChain, VectorStore, display_image, run_sync,
+    get_settings, RAGChain, VectorStore, display_image, run_sync, needs_resync,
 )
 from lib.chat_logger import log_chat
 
+RESYNC_INTERVAL_HOURS = 1.0
 
 st.title("Notion チャットボット")
 st.caption("社内ドキュメント（Notion）に基づいて質問に答えます")
@@ -18,8 +19,11 @@ if not check_auth("chatbot"):
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 自動同期: 永続ストアにデータがあればそれを使う、なければ自動同期
+# 自動同期
 settings = get_settings()
+can_sync = settings.get('notion_token') and settings.get('openai_api_key') and settings.get('notion_page_ids')
+
+# 1. 永続ストアにデータがあればロード
 if not st.session_state.get("vector_store"):
     openai_key = settings.get('openai_api_key')
     if openai_key:
@@ -28,17 +32,18 @@ if not st.session_state.get("vector_store"):
             st.session_state.vector_store = vs
             st.session_state.synced = True
 
-if not st.session_state.get("synced"):
-    can_sync = settings.get('notion_token') and settings.get('openai_api_key') and settings.get('notion_page_ids')
-    if can_sync:
-        with st.spinner("初回データ同期中..."):
-            try:
-                st.session_state.vector_store = run_sync(settings)
-                st.session_state.synced = True
-            except Exception as e:
-                st.error(f"自動同期エラー: {e}")
-    else:
-        st.info("管理者ページでAPI設定を行ってください。")
+# 2. 未同期 or 一定時間経過 → 自動再同期
+if can_sync and (not st.session_state.get("synced") or needs_resync(RESYNC_INTERVAL_HOURS)):
+    label = "データ同期中..." if st.session_state.get("synced") else "初回データ同期中..."
+    with st.spinner(label):
+        try:
+            st.session_state.vector_store = run_sync(settings)
+            st.session_state.synced = True
+        except Exception as e:
+            st.error(f"自動同期エラー: {e}")
+
+if not st.session_state.get("synced") and not can_sync:
+    st.info("管理者ページでAPI設定を行ってください。")
 
 # サイドバー: インデックス情報と会話クリア
 with st.sidebar:

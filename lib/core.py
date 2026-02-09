@@ -5,6 +5,7 @@ import json
 import mimetypes
 import base64
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
@@ -129,6 +130,27 @@ def save_notion_token(token: str) -> None:
 def load_notion_token() -> str | None:
     """保存済みNotion Tokenを読み込む。"""
     return _load_config().get("notion_token")
+
+
+def save_last_sync_time() -> None:
+    """最終同期時刻を記録する。"""
+    config = _load_config()
+    config["last_sync_time"] = datetime.now(timezone.utc).isoformat()
+    _save_config(config)
+
+
+def needs_resync(interval_hours: float = 1.0) -> bool:
+    """前回同期から指定時間が経過していればTrueを返す。"""
+    config = _load_config()
+    last_sync = config.get("last_sync_time")
+    if not last_sync:
+        return True
+    try:
+        last_dt = datetime.fromisoformat(last_sync)
+        elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds()
+        return elapsed > interval_hours * 3600
+    except (ValueError, TypeError):
+        return True
 
 
 def get_settings():
@@ -671,5 +693,6 @@ def run_sync(settings: dict) -> VectorStore:
     vector_store.clear()
     vector_store.add_chunks(all_chunks)
 
+    save_last_sync_time()
     st.success(f"同期完了: {len(all_chunks)}チャンク")
     return vector_store

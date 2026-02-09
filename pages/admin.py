@@ -6,6 +6,7 @@ from lib.core import (
     get_settings, extract_page_id_from_url,
     NotionLoader, ImageProcessor, Chunker, VectorStore,
     save_page_ids, load_page_ids,
+    save_notion_token, load_notion_token,
 )
 from lib.chat_logger import read_logs, get_log_stats
 
@@ -84,15 +85,22 @@ with tab_settings:
     except Exception:
         has_secrets = False
 
+    st.subheader("Notion設定")
+    st.caption("ここでの変更はアプリ再起動後も保持されます。")
+
+    current_token = load_notion_token() or get_settings().get('notion_token', '')
     notion_token = st.text_input(
         "Notion Integration Token",
         type="password",
-        value=st.session_state.get('notion_token', ''),
+        value=current_token,
         placeholder="ntn_xxx または secret_xxx",
         help="https://www.notion.so/my-integrations で取得",
+        key="notion_token_input",
     )
-    if notion_token:
-        st.session_state.notion_token = notion_token
+
+    st.divider()
+    st.subheader("OpenAI設定")
+    st.caption("ここでの変更はセッション中のみ有効です。永続化するには secrets.toml を編集してください。")
 
     openai_api_key = st.text_input(
         "OpenAI API Key",
@@ -116,9 +124,10 @@ with tab_settings:
         height=100,
         key="notion_page_ids_input",
     )
-    if st.button("ページ設定を保存", use_container_width=True):
+    if st.button("Notion設定を保存", use_container_width=True):
+        save_notion_token(notion_token)
         save_page_ids(notion_pages_input)
-        st.success("ページ設定を保存しました。")
+        st.success("Notion Token・ページ設定を保存しました。")
 
     if has_secrets:
         st.success("secrets.toml からAPI設定が読み込まれています。")

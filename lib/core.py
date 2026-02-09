@@ -89,23 +89,46 @@ class Chunk:
 
 # ==================== 設定管理 ====================
 
-_PAGE_IDS_FILE = Path("/tmp/notion_bot_page_ids.json")
+_CONFIG_FILE = Path("/tmp/notion_bot_config.json")
+
+
+def _load_config() -> dict:
+    """永続化設定ファイルを読み込む。"""
+    if _CONFIG_FILE.exists():
+        try:
+            return json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return {}
+
+
+def _save_config(config: dict) -> None:
+    """永続化設定ファイルに書き込む。"""
+    _CONFIG_FILE.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
 
 
 def save_page_ids(page_ids: str) -> None:
-    """NotionページIDをファイルに永続保存する。"""
-    _PAGE_IDS_FILE.write_text(json.dumps({"notion_page_ids": page_ids}), encoding="utf-8")
+    """NotionページIDを永続保存する。"""
+    config = _load_config()
+    config["notion_page_ids"] = page_ids
+    _save_config(config)
 
 
 def load_page_ids() -> str | None:
-    """ファイルから保存済みページIDを読み込む。なければNone。"""
-    if _PAGE_IDS_FILE.exists():
-        try:
-            data = json.loads(_PAGE_IDS_FILE.read_text(encoding="utf-8"))
-            return data.get("notion_page_ids")
-        except (json.JSONDecodeError, OSError):
-            return None
-    return None
+    """保存済みページIDを読み込む。"""
+    return _load_config().get("notion_page_ids")
+
+
+def save_notion_token(token: str) -> None:
+    """Notion Integration Tokenを永続保存する。"""
+    config = _load_config()
+    config["notion_token"] = token
+    _save_config(config)
+
+
+def load_notion_token() -> str | None:
+    """保存済みNotion Tokenを読み込む。"""
+    return _load_config().get("notion_token")
 
 
 def get_settings():
@@ -119,7 +142,10 @@ def get_settings():
     except Exception:
         pass
 
-    # ページIDはファイル永続化を優先
+    # ファイル永続化を優先
+    saved_token = load_notion_token()
+    if saved_token:
+        settings['notion_token'] = saved_token
     saved_page_ids = load_page_ids()
     if saved_page_ids:
         settings['notion_page_ids'] = saved_page_ids

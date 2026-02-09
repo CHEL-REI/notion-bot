@@ -462,10 +462,14 @@ class Chunker:
 
 class VectorStore:
     COLLECTION_NAME = "notion_pages"
+    PERSIST_DIR = "/tmp/notion_bot_chroma"
 
     def __init__(self, openai_api_key: str):
         self.openai_client = OpenAI(api_key=openai_api_key)
-        self.client = chromadb.Client(ChromaSettings(anonymized_telemetry=False))
+        self.client = chromadb.PersistentClient(
+            path=self.PERSIST_DIR,
+            settings=ChromaSettings(anonymized_telemetry=False),
+        )
         self.collection = self.client.get_or_create_collection(
             name=self.COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"},
@@ -635,3 +639,37 @@ def display_image(img_path: str):
     local_path = Path(img_path)
     if local_path.exists():
         st.image(str(local_path), use_container_width=True)
+
+
+def run_sync(settings: dict) -> VectorStore:
+    """Notionデータを同期してVectorStoreを返す。"""
+    raw = settings['notion_page_ids'].replace(",", "\n")
+    page_ids = []
+    for line in raw.strip().split("\n"):
+        line = line.strip()
+        if line:
+            page_id = extract_page_id_from_url(line)
+            if page_id:
+                page_ids.append(page_id)
+
+    loader = NotionLoader(settings['notion_token'], page_ids)
+    pages = loader.load_all_pages()
+    st.info(f"{len(pages)}ページを取得")
+
+    image_processor = ImageProcessor(settings['openai_api_key'])
+    for page in pages:
+        for image in page.images:
+            image_processor.process_image(image)
+
+    chunker = Chunker()
+    all_chunks = []
+    for page in pages:
+        chunks = chunker.chunk_page(page)
+        all_chunks.extend(chunks)
+
+    vector_store = VectorStore(settings['openai_api_key'])
+    vector_store.clear()
+    vector_store.add_chunks(all_chunks)
+
+    st.success(f"同期完了: {len(all_chunks)}チャンク")
+    return vector_store
